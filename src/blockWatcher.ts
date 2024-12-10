@@ -3,6 +3,7 @@ import { publicClient } from "./rpc/publicClient";
 interface IBlockWatcher {
   blocksStack: any[];
   lastFinalizedBlockNumber: bigint;
+  reorgInProgress: boolean;
   startWatching(): void;
   getCurrentState(): { latestBlocks: any[]; finalizedBlocks: any[] };
 }
@@ -10,6 +11,7 @@ interface IBlockWatcher {
 export class BlockWatcher implements IBlockWatcher {
   blocksStack: any[] = [];
   lastFinalizedBlockNumber = 0n;
+  reorgInProgress = false;
 
   startWatching() {
     console.log("Watching blocks...");
@@ -35,6 +37,17 @@ export class BlockWatcher implements IBlockWatcher {
     };
   }
 
+  private async handleNewBlock(block: any) {
+    if (
+      !this.blocksStack.length ||
+      block.number > this.blocksStack[this.blocksStack.length - 1].number
+    ) {
+      this.blocksStack.push(block);
+      this.sliceFinalizedBlocks();
+      this.checkReorg();
+    }
+  }
+
   private async sliceFinalizedBlocks() {
     const lastFinalizedBlock = await publicClient.getBlock({
       blockTag: "finalized",
@@ -47,13 +60,38 @@ export class BlockWatcher implements IBlockWatcher {
     );
   }
 
-  private async handleNewBlock(block: any) {
+  private checkReorg() {
+    const latestBlock = this.blocksStack[this.blocksStack.length - 1];
+    const parentBlock = this.blocksStack[this.blocksStack.length - 2];
+
     if (
-      !this.blocksStack.length ||
-      block.number > this.blocksStack[this.blocksStack.length - 1].number
+      latestBlock &&
+      parentBlock &&
+      latestBlock.parentHash !== parentBlock.hash
     ) {
-      this.blocksStack.push(block);
-      this.sliceFinalizedBlocks();
+      this.makeBlocksReorg();
     }
+  }
+
+  private async makeBlocksReorg() {
+    this.reorgInProgress = true;
+    const revertedBlocks = this.blocksStack
+      .slice(0, this.blocksStack.length - 1)
+      .reverse();
+
+    for (const block of revertedBlocks) {
+      const blockchainBlock = await publicClient.getBlock({
+        blockNumber: block.number,
+      });
+      if (blockchainBlock.hash !== block.hash) {
+        const blockIndex = this.blocksStack.findIndex(
+          (b) => b.number === block.number
+        );
+        this.blocksStack[blockIndex] = blockchainBlock;
+      } else {
+        break;
+      }
+    }
+    this.reorgInProgress = false;
   }
 }
