@@ -30,6 +30,7 @@ export class KeysManager implements IKeysManager {
     try {
       // @ts-ignore
       BigInt.prototype.toJSON = function () {
+        // BigInt can't be serialized to JSON, so we need to convert it to number
         return Number(this);
       };
       await redisInstance.set(block.number, JSON.stringify({ keys, block }));
