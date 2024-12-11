@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "dotenv": "^16.4.7",
+    "redis": "^4.7.0",
     "viem": "^2.21.53"
   }
 }

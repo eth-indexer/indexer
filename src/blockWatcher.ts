@@ -4,7 +4,7 @@ interface IBlockWatcher {
   blocksStack: any[];
   lastFinalizedBlockNumber: bigint;
   reorgInProgress: boolean;
-  startWatching(): void;
+  startWatching(options?: { callback(block: any): void }): void;
   getCurrentState(): { latestBlocks: any[]; finalizedBlocks: any[] };
 }
 
@@ -13,11 +13,14 @@ export class BlockWatcher implements IBlockWatcher {
   lastFinalizedBlockNumber = 0n;
   reorgInProgress = false;
 
-  startWatching() {
+  startWatching(options?: { callback(block: any): void }) {
     console.log("Watching blocks...");
     publicClient.watchBlocks({
       onBlock: async (block) => {
         this.handleNewBlock(block);
+        if (options && options.callback) {
+          options.callback(block);
+        }
       },
     });
   }
@@ -38,6 +41,7 @@ export class BlockWatcher implements IBlockWatcher {
   }
 
   private async handleNewBlock(block: any) {
+    console.log("New block: ", block.number);
     if (
       !this.blocksStack.length ||
       block.number > this.blocksStack[this.blocksStack.length - 1].number
@@ -74,6 +78,7 @@ export class BlockWatcher implements IBlockWatcher {
   }
 
   private async makeBlocksReorg() {
+    console.log("Making reorg...");
     this.reorgInProgress = true;
     const revertedBlocks = this.blocksStack
       .slice(0, this.blocksStack.length - 1)
