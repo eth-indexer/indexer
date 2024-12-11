@@ -18,6 +18,14 @@ export class KeysManager implements IKeysManager {
     this.saveKeysToDB({ block, keys });
   }
 
+  async cutOffFinalizedBlocks(blocksToRemove: bigint[]) {
+    console.log("Cutting off finalized blocks...", blocksToRemove);
+    for (const blockNumber of blocksToRemove) {
+      await redisInstance.del(blockNumber.toString());
+      delete this.keysForBlocks[blockNumber.toString()];
+    }
+  }
+
   private async saveKeysToDB({ block, keys }: { block: any; keys: string[] }) {
     try {
       // @ts-ignore

@@ -2,14 +2,14 @@ import { BlockWatcher } from "./blockWatcher";
 import { KeysManager } from "./keysManager";
 
 const main = async () => {
-  const blockWatcher = new BlockWatcher();
   const keysManager = new KeysManager();
 
-  const onNewBlock = async (block: any) => {
-    keysManager.addKeysForBlock(block);
-  };
+  const blockWatcher = new BlockWatcher({
+    onNewBlock: keysManager.addKeysForBlock,
+    onCutOffFinalizedBlocks: keysManager.cutOffFinalizedBlocks,
+  });
 
-  blockWatcher.startWatching({ callback: onNewBlock });
+  blockWatcher.startWatching();
 };
 
 main();

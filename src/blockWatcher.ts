@@ -1,10 +1,15 @@
 import { publicClient } from "./rpc/publicClient";
 
+type TWatchingParams = {
+  onNewBlock?(block: any): void;
+  onCutOffFinalizedBlocks?(blocksToRemove: bigint[]): void;
+};
+
 interface IBlockWatcher {
   blocksStack: any[];
   lastFinalizedBlockNumber: bigint;
   reorgInProgress: boolean;
-  startWatching(options?: { callback(block: any): void }): void;
+  startWatching(options?: TWatchingParams): void;
   getCurrentState(): { latestBlocks: any[]; finalizedBlocks: any[] };
 }
 
@@ -12,15 +17,20 @@ export class BlockWatcher implements IBlockWatcher {
   blocksStack: any[] = [];
   lastFinalizedBlockNumber = 0n;
   reorgInProgress = false;
+  onNewBlock?: (block: any) => void;
+  onCutOffFinalizedBlocks?: (blocksToRemove: bigint[]) => void;
 
-  startWatching(options?: { callback(block: any): void }) {
+  constructor(options?: TWatchingParams) {
+    this.onNewBlock = options?.onNewBlock;
+    this.onCutOffFinalizedBlocks = options?.onCutOffFinalizedBlocks;
+  }
+
+  startWatching() {
     console.log("Watching blocks...");
     publicClient.watchBlocks({
       onBlock: async (block) => {
         this.handleNewBlock(block);
-        if (options && options.callback) {
-          options.callback(block);
-        }
+        this.onNewBlock && this.onNewBlock(block);
       },
     });
   }
@@ -59,9 +69,15 @@ export class BlockWatcher implements IBlockWatcher {
     if (this.lastFinalizedBlockNumber == lastFinalizedBlock.number) return;
 
     this.lastFinalizedBlockNumber = lastFinalizedBlock.number;
+    const blocksToRemove = this.blocksStack
+      .filter((block) => block.number <= this.lastFinalizedBlockNumber - 10n)
+      .map((block) => block.number);
     this.blocksStack = this.blocksStack.filter(
       (block) => block.number >= this.lastFinalizedBlockNumber - 10n
     );
+
+    this.onCutOffFinalizedBlocks &&
+      this.onCutOffFinalizedBlocks(blocksToRemove);
   }
 
   private checkReorg() {
