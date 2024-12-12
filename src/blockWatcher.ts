@@ -1,23 +1,24 @@
+import { Block } from "viem";
 import { publicClient } from "./rpc/publicClient";
 
 type TWatchingParams = {
-  onNewBlock?(block: any): void;
+  onNewBlock?(block: Block): void;
   onCutOffFinalizedBlocks?(blocksToRemove: bigint[]): void;
 };
 
 interface IBlockWatcher {
-  blocksStack: any[];
+  blocksStack: Block[];
   lastFinalizedBlockNumber: bigint;
   reorgInProgress: boolean;
   startWatching(options?: TWatchingParams): void;
-  getCurrentState(): { latestBlocks: any[]; finalizedBlocks: any[] };
+  getCurrentState(): { latestBlocks: Block[]; finalizedBlocks: Block[] };
 }
 
 export class BlockWatcher implements IBlockWatcher {
-  blocksStack: any[] = [];
+  blocksStack: Block[] = [];
   lastFinalizedBlockNumber = 0n;
   reorgInProgress = false;
-  onNewBlock?: (block: any) => void;
+  onNewBlock?: (block: Block) => void;
   onCutOffFinalizedBlocks?: (blocksToRemove: bigint[]) => void;
 
   constructor(options?: TWatchingParams) {
@@ -37,11 +38,11 @@ export class BlockWatcher implements IBlockWatcher {
 
   getCurrentState() {
     const latestBlocks = this.blocksStack.filter(
-      (block) => block.number > this.lastFinalizedBlockNumber
+      (block) => block.number && block.number > this.lastFinalizedBlockNumber
     );
 
     const finalizedBlocks = this.blocksStack.filter(
-      (block) => block.number <= this.lastFinalizedBlockNumber
+      (block) => block.number && block.number <= this.lastFinalizedBlockNumber
     );
 
     return {
@@ -50,12 +51,13 @@ export class BlockWatcher implements IBlockWatcher {
     };
   }
 
-  private async handleNewBlock(block: any) {
+  private async handleNewBlock(block: Block) {
     console.log("New block: ", block.number);
-    if (
-      !this.blocksStack.length ||
-      block.number > this.blocksStack[this.blocksStack.length - 1].number
-    ) {
+    const newBlockNumber = block.number || 0;
+    const previousBlockNumber = this.blocksStack.length
+      ? this.blocksStack[this.blocksStack.length - 1].number || 0
+      : 0;
+    if (!this.blocksStack.length || newBlockNumber > previousBlockNumber) {
       this.blocksStack.push(block);
       this.sliceFinalizedBlocks();
       this.checkReorg();
@@ -66,14 +68,23 @@ export class BlockWatcher implements IBlockWatcher {
     const lastFinalizedBlock = await publicClient.getBlock({
       blockTag: "finalized",
     });
-    if (this.lastFinalizedBlockNumber == lastFinalizedBlock.number) return;
+    if (
+      !this.lastFinalizedBlockNumber ||
+      this.lastFinalizedBlockNumber === lastFinalizedBlock.number
+    )
+      return;
 
     this.lastFinalizedBlockNumber = lastFinalizedBlock.number;
     const blocksToRemove = this.blocksStack
-      .filter((block) => block.number <= this.lastFinalizedBlockNumber - 10n)
-      .map((block) => block.number);
+      .filter(
+        (block) =>
+          block.number && block.number <= this.lastFinalizedBlockNumber - 10n
+      )
+      .map((block) => block.number) as bigint[];
+
     this.blocksStack = this.blocksStack.filter(
-      (block) => block.number >= this.lastFinalizedBlockNumber - 10n
+      (block) =>
+        block.number && block.number >= this.lastFinalizedBlockNumber - 10n
     );
 
     this.onCutOffFinalizedBlocks &&
@@ -101,8 +112,10 @@ export class BlockWatcher implements IBlockWatcher {
       .reverse();
 
     for (const block of revertedBlocks) {
+      const blockNumber = block.number;
+      if (!blockNumber) continue;
       const blockchainBlock = await publicClient.getBlock({
-        blockNumber: block.number,
+        blockNumber,
       });
       if (blockchainBlock.hash !== block.hash) {
         const blockIndex = this.blocksStack.findIndex(

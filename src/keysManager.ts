@@ -1,20 +1,18 @@
 import { getSigningKeys } from "./utils/getSigningKeys";
 import { redisInstance } from "./db/redisInstance";
+import { Block } from "viem";
 
-type TKeys = {
-  [key: string]: string[];
-};
+export class KeysManager {
+  constructor() {
+    this.addKeysForBlock = this.addKeysForBlock.bind(this);
+    this.cutOffFinalizedBlocks = this.cutOffFinalizedBlocks.bind(this);
+  }
 
-interface IKeysManager {
-  keysForBlocks: TKeys;
-}
+  async addKeysForBlock(block: Block) {
+    const blockNumber = block.number;
+    if (!blockNumber) return;
 
-export class KeysManager implements IKeysManager {
-  keysForBlocks: TKeys = {};
-
-  async addKeysForBlock(block: any) {
-    const keys = await getSigningKeys({ blockNumber: block.number });
-    this.keysForBlocks[block.number.toString()] = keys;
+    const keys = await getSigningKeys({ blockNumber });
     this.saveKeysToDB({ block, keys });
   }
 
@@ -22,11 +20,19 @@ export class KeysManager implements IKeysManager {
     console.log("Cutting off finalized blocks...", blocksToRemove);
     for (const blockNumber of blocksToRemove) {
       await redisInstance.del(blockNumber.toString());
-      delete this.keysForBlocks[blockNumber.toString()];
     }
   }
 
-  private async saveKeysToDB({ block, keys }: { block: any; keys: string[] }) {
+  private async saveKeysToDB({
+    block,
+    keys,
+  }: {
+    block: Block;
+    keys: string[];
+  }) {
+    const blockNumber = block.number;
+    if (!blockNumber) return;
+
     try {
       // @ts-ignore
       BigInt.prototype.toJSON = function () {
@@ -34,7 +40,7 @@ export class KeysManager implements IKeysManager {
         return Number(this);
       };
       await redisInstance.set(
-        block.number.toString(),
+        blockNumber.toString(),
         JSON.stringify({ keys, block })
       );
       console.log("Saved!");
