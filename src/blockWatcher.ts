@@ -1,6 +1,8 @@
 import { Block } from "viem";
 import { publicClient } from "./rpc/publicClient";
 
+const FINALIZED_BLOCKS_TO_KEEP = process.env.FINALIZED_BLOCKS_TO_KEEP || 11;
+
 type TWatchingParams = {
   onNewBlock?(block: Block): void;
   onCutOffFinalizedBlocks?(blocksToRemove: bigint[]): void;
@@ -27,6 +29,10 @@ export class BlockWatcher implements IBlockWatcher {
   }
 
   startWatching() {
+    if (!this.blocksStack.length) {
+      this.coldStart();
+    }
+
     console.log("Watching blocks...");
     publicClient.watchBlocks({
       onBlock: async (block) => {
@@ -49,6 +55,38 @@ export class BlockWatcher implements IBlockWatcher {
       latestBlocks,
       finalizedBlocks,
     };
+  }
+
+  private async coldStart() {
+    const finalizedBlock = await publicClient.getBlock({
+      blockTag: "finalized",
+    });
+    const latestBlock = await publicClient.getBlock({
+      blockTag: "latest",
+    });
+
+    if (!finalizedBlock.number || !latestBlock.number) return;
+
+    this.lastFinalizedBlockNumber = finalizedBlock.number;
+    const startBlockNumber =
+      finalizedBlock.number - BigInt(FINALIZED_BLOCKS_TO_KEEP);
+    const stopBlockNumber = latestBlock.number - BigInt(1);
+
+    const blocksToAdd = Array.from(
+      { length: Number(stopBlockNumber - startBlockNumber) + 1 },
+      (_, index) => startBlockNumber + BigInt(index)
+    );
+
+    let tempBlocksStack: Block[] = [];
+    for (const blockNumber of blocksToAdd) {
+      const blockData = await publicClient.getBlock({
+        blockNumber,
+      });
+      tempBlocksStack.push(blockData);
+    }
+
+    console.log("Cold start finished!");
+    this.blocksStack = [...tempBlocksStack, ...this.blocksStack];
   }
 
   private async handleNewBlock(block: Block) {
@@ -78,13 +116,17 @@ export class BlockWatcher implements IBlockWatcher {
     const blocksToRemove = this.blocksStack
       .filter(
         (block) =>
-          block.number && block.number <= this.lastFinalizedBlockNumber - 10n
+          block.number &&
+          block.number <
+            this.lastFinalizedBlockNumber - BigInt(FINALIZED_BLOCKS_TO_KEEP)
       )
       .map((block) => block.number) as bigint[];
 
     this.blocksStack = this.blocksStack.filter(
       (block) =>
-        block.number && block.number >= this.lastFinalizedBlockNumber - 10n
+        block.number &&
+        block.number >=
+          this.lastFinalizedBlockNumber - BigInt(FINALIZED_BLOCKS_TO_KEEP)
     );
 
     this.onCutOffFinalizedBlocks &&
