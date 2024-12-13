@@ -1,6 +1,7 @@
 import { getSigningKeys } from "./utils/getSigningKeys";
 import { redisInstance } from "./db/redisInstance";
 import { Block } from "viem";
+import { getNonce } from "./utils/getNonce";
 
 export class KeysManager {
   private maxBatchSize: number = 100;
@@ -14,6 +15,9 @@ export class KeysManager {
   async addKeysForBlock(block: Block) {
     const blockNumber = block.number;
     if (!blockNumber) return;
+
+    const nonce = await getNonce(blockNumber);
+    // TODO: check if nonce is already in the DB and skip if it is
 
     const keys = await getSigningKeys({
       blockNumber,
