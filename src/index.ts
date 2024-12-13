@@ -4,7 +4,7 @@ import { getSigningKeys } from "./utils/getSigningKeys";
 import { RPCHelperInstance } from "./helpers/RPCHelper";
 
 const main = async () => {
-  const batchSize = await RPCHelperInstance.getOptimalBatchSize();
+  const batchSize = await RPCHelperInstance.getMaxBatchSize();
   const keysManager = new KeysManager(batchSize);
 
   const blockWatcher = new BlockWatcher({

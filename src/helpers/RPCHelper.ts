@@ -2,25 +2,25 @@ import { noRegistryContract } from "../contracts/noRegistryContract";
 
 class RPCHelper {
   private static _instance: RPCHelper;
-  public optimalBatchSize: number = 0;
+  public maxBatchSize: number = 0;
 
   private constructor() {
-    this.findOptimalBatchSize = this.findOptimalBatchSize.bind(this);
+    this.findMaxBatchSize = this.findMaxBatchSize.bind(this);
   }
 
   public static get Instance() {
     return this._instance || (this._instance = new this());
   }
 
-  public async getOptimalBatchSize() {
-    if (!this.optimalBatchSize) {
-      this.optimalBatchSize = await this.findOptimalBatchSize({
+  public async getMaxBatchSize() {
+    if (!this.maxBatchSize) {
+      this.maxBatchSize = await this.findMaxBatchSize({
         low: 1,
         high: 1500,
       });
     }
 
-    return this.optimalBatchSize;
+    return this.maxBatchSize;
   }
 
   private async checkSignInKeysRequestLimit(
@@ -35,7 +35,7 @@ class RPCHelper {
     }
   }
 
-  private async findOptimalBatchSize({
+  private async findMaxBatchSize({
     low = 1,
     high = 1200,
   }: {
