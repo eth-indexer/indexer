@@ -3,7 +3,10 @@ import { redisInstance } from "./db/redisInstance";
 import { Block } from "viem";
 
 export class KeysManager {
-  constructor() {
+  private maxBatchSize: number = 100;
+
+  constructor(maxBatchSize: number) {
+    this.maxBatchSize = maxBatchSize;
     this.addKeysForBlock = this.addKeysForBlock.bind(this);
     this.cutOffFinalizedBlocks = this.cutOffFinalizedBlocks.bind(this);
   }
@@ -12,7 +15,11 @@ export class KeysManager {
     const blockNumber = block.number;
     if (!blockNumber) return;
 
-    const keys = await getSigningKeys({ blockNumber });
+    const keys = await getSigningKeys({
+      blockNumber,
+      maxBatchSize: this.maxBatchSize,
+    });
+    console.log(`Got ${keys.length} keys for block ${blockNumber}`);
     this.saveKeysToDB({ block, keys });
   }
 
