@@ -4,13 +4,13 @@ import { publicClient } from "./rpc/publicClient";
 const FINALIZED_BLOCKS_TO_KEEP = process.env.FINALIZED_BLOCKS_TO_KEEP || 11;
 
 type TWatchingParams = {
-  onNewBlock?(block: Block): void;
-  onCutOffFinalizedBlocks?(blocksToRemove: bigint[]): void;
+  onChange?(blocks: Block[], isReorg?: boolean): void;
+  onCutOffFinalizedBlocks?(blocksToRemove: BigInt[]): void;
 };
 
 interface IBlockWatcher {
   blocksStack: Block[];
-  lastFinalizedBlockNumber: bigint;
+  lastFinalizedBlockNumber: BigInt;
   reorgInProgress: boolean;
   startWatching(options?: TWatchingParams): void;
   getCurrentState(): { latestBlocks: Block[]; finalizedBlocks: Block[] };
@@ -20,11 +20,11 @@ export class BlockWatcher implements IBlockWatcher {
   blocksStack: Block[] = [];
   lastFinalizedBlockNumber = 0n;
   reorgInProgress = false;
-  onNewBlock?: (block: Block) => void;
-  onCutOffFinalizedBlocks?: (blocksToRemove: bigint[]) => void;
+  onChange?: (blocks: Block[], isReorg?: boolean) => void;
+  onCutOffFinalizedBlocks?: (blocksToRemove: BigInt[]) => void;
 
   constructor(options?: TWatchingParams) {
-    this.onNewBlock = options?.onNewBlock;
+    this.onChange = options?.onChange;
     this.onCutOffFinalizedBlocks = options?.onCutOffFinalizedBlocks;
   }
 
@@ -37,7 +37,7 @@ export class BlockWatcher implements IBlockWatcher {
     publicClient.watchBlocks({
       onBlock: async (block) => {
         this.handleNewBlock(block);
-        this.onNewBlock && this.onNewBlock(block);
+        this.onChange && this.onChange([block]);
       },
     });
   }
@@ -84,6 +84,7 @@ export class BlockWatcher implements IBlockWatcher {
       });
       tempBlocksStack.push(blockData);
     }
+    this.onChange && this.onChange(tempBlocksStack);
 
     console.log("Cold start finished!");
     this.blocksStack = [...tempBlocksStack, ...this.blocksStack];
@@ -97,7 +98,7 @@ export class BlockWatcher implements IBlockWatcher {
       : 0;
     if (!this.blocksStack.length || newBlockNumber > previousBlockNumber) {
       this.blocksStack.push(block);
-      this.sliceFinalizedBlocks();
+      // this.sliceFinalizedBlocks();
       this.checkReorg();
     }
   }
@@ -120,7 +121,7 @@ export class BlockWatcher implements IBlockWatcher {
           block.number <
             this.lastFinalizedBlockNumber - BigInt(FINALIZED_BLOCKS_TO_KEEP)
       )
-      .map((block) => block.number) as bigint[];
+      .map((block) => block.number) as BigInt[];
 
     this.blocksStack = this.blocksStack.filter(
       (block) =>
@@ -147,6 +148,8 @@ export class BlockWatcher implements IBlockWatcher {
   }
 
   private async makeBlocksReorg() {
+    // TODO rewrite this to get reorged blocks and pass it to the onChange callback
+
     console.log("Making reorg...");
     this.reorgInProgress = true;
     const revertedBlocks = this.blocksStack

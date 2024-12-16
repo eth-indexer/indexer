@@ -8,7 +8,7 @@ const main = async () => {
   const keysManager = new KeysManager(batchSize);
 
   const blockWatcher = new BlockWatcher({
-    onNewBlock: keysManager.addKeysForBlock,
+    onChange: keysManager.onChange,
     onCutOffFinalizedBlocks: keysManager.cutOffFinalizedBlocks,
   });
 

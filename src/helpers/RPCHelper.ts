@@ -24,7 +24,7 @@ class RPCHelper {
   }
 
   private async checkSignInKeysRequestLimit(
-    operatorId: bigint,
+    operatorId: BigInt,
     limit: number
   ): Promise<boolean> {
     try {
