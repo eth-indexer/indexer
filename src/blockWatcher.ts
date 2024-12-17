@@ -148,13 +148,13 @@ export class BlockWatcher implements IBlockWatcher {
   }
 
   private async makeBlocksReorg() {
-    // TODO rewrite this to get reorged blocks and pass it to the onChange callback
-
     console.log("Making reorg...");
     this.reorgInProgress = true;
     const revertedBlocks = this.blocksStack
       .slice(0, this.blocksStack.length - 1)
       .reverse();
+
+    const reorgonizedBlocks = [];
 
     for (const block of revertedBlocks) {
       const blockNumber = block.number;
@@ -167,10 +167,12 @@ export class BlockWatcher implements IBlockWatcher {
           (b) => b.number === block.number
         );
         this.blocksStack[blockIndex] = blockchainBlock;
+        reorgonizedBlocks.push(blockchainBlock);
       } else {
         break;
       }
     }
     this.reorgInProgress = false;
+    this.onChange && this.onChange(reorgonizedBlocks.reverse(), true);
   }
 }
