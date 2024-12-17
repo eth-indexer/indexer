@@ -10,21 +10,20 @@ datasource db {
 
 model Block {
   id              BigInt    @id @default(autoincrement())
-  blockNumber     BigInt
+  blockNumber     BigInt    @unique
   blockHash       String    @db.Char(66)
   parentBlockHash String    @db.Char(66)
   contractNonce   BigInt
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
-  blockState      Json     
-  isFinalized     Boolean   @default(false)
+  blockState      String    @db.Text
   keyState        KeyState  @relation(fields: [contractNonce], references: [nonce])
 }
 
 model KeyState {
-  id              BigInt       @id @default(autoincrement())
-  nonce           BigInt       @unique  
-  keys            Json         
+  id              BigInt    @id @default(autoincrement())
+  nonce           BigInt    @unique  
+  keys            String    @db.Text       
   blocks          Block[]
 }
 

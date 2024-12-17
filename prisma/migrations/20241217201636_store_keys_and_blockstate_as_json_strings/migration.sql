@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "Block" ALTER COLUMN "blockState" SET DATA TYPE TEXT;
+
+-- AlterTable
+ALTER TABLE "KeyState" ALTER COLUMN "keys" SET DATA TYPE TEXT;

@@ -3,6 +3,7 @@ import { Block } from "viem";
 import { getNonce, getNonces } from "./utils/getNonce";
 import AsyncLock from "./utils/asyncLock";
 import { nanoid } from "nanoid";
+import prisma from "./db/prisma";
 
 type KeysManagerBlock = {
   hash: string;
@@ -28,6 +29,20 @@ type BlockWithNonce = {
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const bigIntReplacer = (key: string, value: any): any => {
+  if (typeof value === "bigint") {
+    return value.toString() + "n";
+  }
+  return value;
+};
+
+const bigIntReviver = (key: string, value: any): any => {
+  if (typeof value === "string" && /^\d+n$/.test(value)) {
+    return BigInt(value.slice(0, -1));
+  }
+  return value;
+};
+
 export class KeysManager {
   private maxBatchSize: number = 100;
   private blocks: Map<BigInt, KeysManagerBlock>;
@@ -52,8 +67,9 @@ export class KeysManager {
       await this.stateLock.acquire();
       try {
         const blockIds = newBlocks.map((block) => block.number as BigInt);
-        const firstBlockInReorg = blockIds.reduce(
-          (min: BigInt, current: BigInt) => (min < current ? min : current)
+        const firstBlockInReorg = blockIds?.reduce(
+          (min: BigInt, current: BigInt) => (min < current ? min : current),
+          blockIds[0]
         );
         const lastBlockIdBeforeReorg: BigInt = BigInt(
           (firstBlockInReorg as bigint) - 1n
@@ -153,7 +169,22 @@ export class KeysManager {
       if (!this.nonces.has(nonce)) return;
       const nonceData = this.nonces.get(nonce);
       if (nonceData?.jobId !== jobId) return;
-      // TODO save nonce and keys to db
+
+      const keysString = JSON.stringify(keys, bigIntReplacer);
+
+      await prisma.keyState.upsert({
+        where: {
+          nonce: nonce as bigint,
+        },
+        update: {
+          keys: keysString,
+        },
+        create: {
+          nonce: nonce as bigint,
+          keys: keysString,
+        },
+      });
+
       this.nonces.set(nonce, { jobId, isLoaded: true });
       console.log(
         `Succesfully saved keys for nonce ${nonce}, jobId ${jobId} and block ${blockNumber}`
@@ -189,7 +220,26 @@ export class KeysManager {
         const nonceData = this.nonces.get(nonce);
         if (nonceData?.jobId !== jobId) return;
 
-        // TODO save block to db
+        const blockStateString = JSON.stringify(block, bigIntReplacer);
+
+        await prisma.block.upsert({
+          where: {
+            blockNumber: block.number as bigint,
+          },
+          update: {
+            blockHash: block.hash as `0x${string}`,
+            parentBlockHash: block.parentHash as `0x${string}`,
+            contractNonce: nonce as bigint,
+            blockState: blockStateString,
+          },
+          create: {
+            blockNumber: block.number as bigint,
+            blockHash: block.hash as `0x${string}`,
+            parentBlockHash: block.parentHash as `0x${string}`,
+            contractNonce: nonce as bigint,
+            blockState: blockStateString,
+          },
+        });
 
         console.log(
           `Saved block ${block.number} to db with nonce ${nonce} from jobId ${jobId}`
