@@ -49,7 +49,7 @@ export class KeysManager {
       return !!block.number;
     });
     if (isReorg) {
-      this.stateLock.acquire();
+      await this.stateLock.acquire();
       try {
         const blockIds = newBlocks.map((block) => block.number as BigInt);
         const firstBlockInReorg = blockIds.reduce(
@@ -147,7 +147,7 @@ export class KeysManager {
       `Got ${keys.length} keys for nonce ${nonce}, jobId ${jobId} and block ${blockNumber}`
     );
 
-    this.stateLock.acquire();
+    await this.stateLock.acquire();
     try {
       // check if nonce is still in state and has the same jobId
       if (!this.nonces.has(nonce)) return;
@@ -181,7 +181,8 @@ export class KeysManager {
       if (status !== "loaded") {
         return;
       }
-      this.stateLock.acquire();
+
+      await this.stateLock.acquire();
       try {
         // check if nonce is still in state and has the same jobId
         if (!this.nonces.has(nonce)) return;

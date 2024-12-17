@@ -73,7 +73,7 @@ class RPCHelper {
         break;
       }
     }
-
+    console.log(`Optimal batch size is ${result}`);
     return result;
   }
 }
