@@ -51,7 +51,6 @@ export class KeysManager {
     if (isReorg) {
       this.stateLock.acquire();
       try {
-        // получаем нонсы для блоков
         const blockIds = newBlocks.map((block) => block.number as BigInt);
         const firstBlockInReorg = blockIds.reduce(
           (min: BigInt, current: BigInt) => (min < current ? min : current)
@@ -71,7 +70,7 @@ export class KeysManager {
         for (const nonce of staleNonces) {
           this.nonces.delete(nonce);
         }
-        // TODO delete stale nonces from db
+        // TODO check if we need to delete stale nonces from db???
       } finally {
         this.stateLock.release();
       }
@@ -169,7 +168,11 @@ export class KeysManager {
 
       while (status === "waiting") {
         const nonceData = this.nonces.get(nonce);
-        if (nonceData?.isLoaded && nonceData?.jobId === jobId) {
+        if (nonceData?.jobId !== jobId) {
+          status = "canceled";
+          continue;
+        }
+        if (nonceData?.isLoaded) {
           status = "loaded";
           continue;
         }
