@@ -39,7 +39,7 @@ async function getOperatorKeys(
     }
   }
 
-  return signingKeys;
+  return { operatorId, keys: signingKeys };
 }
 
 export async function getSigningKeys({
@@ -56,14 +56,11 @@ export async function getSigningKeys({
     (_, i) => BigInt(i)
   );
 
-  const keys: any[] = [];
-
   const fetchedKeys = await Promise.all(
     operatorIds.map((operatorId) =>
       getOperatorKeys(operatorId, blockNumber, maxBatchSize)
     )
   );
 
-  keys.push(...fetchedKeys.flat());
-  return keys;
+  return fetchedKeys;
 }
