@@ -50,7 +50,7 @@ export class KeysManager {
   private stateLock = new AsyncLock();
 
   constructor(maxBatchSize: number, seed: KeysManagerSeed = []) {
-    this.maxBatchSize = maxBatchSize;
+    // this.maxBatchSize = maxBatchSize;
     this.onChange = this.onChange.bind(this);
     this.removeFinalizedBlocks = this.removeFinalizedBlocks.bind(this);
 
@@ -71,10 +71,7 @@ export class KeysManager {
           (min: bigint, current: bigint) => (min < current ? min : current),
           blockIds[0]
         );
-        const lastBlockIdBeforeReorg: bigint = BigInt(
-          (firstBlockInReorg as bigint) - 1n
-        ) as bigint;
-
+        const lastBlockIdBeforeReorg = firstBlockInReorg - 1n;
         const lastNonceBeforeReorg = this.blocks.get(lastBlockIdBeforeReorg)
           ?.nonce as bigint;
         const newNonces = await getNonces(blockIds as bigint[]);
