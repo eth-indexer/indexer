@@ -15,12 +15,6 @@ type NonceData = {
   isLoaded: boolean;
 };
 
-type KeysManagerSeed = {
-  blockNumber: string;
-  hash: string;
-  nonce: bigint;
-}[];
-
 type BlockWithNonce = {
   blockNumber: bigint;
   nonce: bigint;
@@ -49,12 +43,11 @@ export class KeysManager {
   private nonces: Map<bigint, NonceData>;
   private stateLock = new AsyncLock();
 
-  constructor(maxBatchSize: number, seed: KeysManagerSeed = []) {
-    // this.maxBatchSize = maxBatchSize;
+  constructor(maxBatchSize: number) {
+    this.maxBatchSize = maxBatchSize;
     this.onChange = this.onChange.bind(this);
     this.removeFinalizedBlocks = this.removeFinalizedBlocks.bind(this);
 
-    // TODO use seed to populate state??? Perhaps only finalized blocks because others could have been reorganized
     this.blocks = new Map<bigint, KeysManagerBlock>();
     this.nonces = new Map<bigint, NonceData>();
   }
