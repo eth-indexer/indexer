@@ -22,13 +22,7 @@ async function getOperatorKeys(
 
     try {
       const keys = (await noRegistryContract.read.getSigningKeys(
-        [
-          operatorId,
-          i * actualLimit,
-          batchesCount > 1 && i === batchesCount - 1
-            ? actualLimit - 1
-            : actualLimit,
-        ],
+        [operatorId, i * actualLimit, actualLimit],
         { blockNumber }
       )) as any[];
 
