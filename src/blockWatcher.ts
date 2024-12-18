@@ -5,7 +5,10 @@ const FINALIZED_BLOCKS_TO_KEEP = process.env.FINALIZED_BLOCKS_TO_KEEP || 11;
 
 type TWatchingParams = {
   onChange?(blocks: Block[], isReorg?: boolean): void;
-  onCutOffFinalizedBlocks?(blocksToRemove: bigint[]): void;
+  onRemoveFinalizedBlocks?(
+    blocksToRemove: bigint[],
+    lastFinalizedBlockNumber: bigint
+  ): void;
 };
 
 interface IBlockWatcher {
@@ -21,11 +24,14 @@ export class BlockWatcher implements IBlockWatcher {
   lastFinalizedBlockNumber = 0n;
   reorgInProgress = false;
   onChange?: (blocks: Block[], isReorg?: boolean) => void;
-  onCutOffFinalizedBlocks?: (blocksToRemove: bigint[]) => void;
+  onRemoveFinalizedBlocks?: (
+    blocksToRemove: bigint[],
+    lastFinalizedBlockNumber: bigint
+  ) => void;
 
   constructor(options?: TWatchingParams) {
     this.onChange = options?.onChange;
-    this.onCutOffFinalizedBlocks = options?.onCutOffFinalizedBlocks;
+    this.onRemoveFinalizedBlocks = options?.onRemoveFinalizedBlocks;
   }
 
   startWatching() {
@@ -103,7 +109,7 @@ export class BlockWatcher implements IBlockWatcher {
         : 0n;
       if (!this.blocksStack.length || newBlockNumber > previousBlockNumber) {
         this.blocksStack.push(block);
-        // this.sliceFinalizedBlocks();
+        this.removeFinalizedBlocks();
         await this.checkReorg();
       }
     } catch (error) {
@@ -111,7 +117,7 @@ export class BlockWatcher implements IBlockWatcher {
     }
   }
 
-  private async sliceFinalizedBlocks() {
+  private async removeFinalizedBlocks() {
     try {
       const lastFinalizedBlock = await publicClient.getBlock({
         blockTag: "finalized",
@@ -139,8 +145,11 @@ export class BlockWatcher implements IBlockWatcher {
             this.lastFinalizedBlockNumber - BigInt(FINALIZED_BLOCKS_TO_KEEP)
       );
 
-      this.onCutOffFinalizedBlocks &&
-        this.onCutOffFinalizedBlocks(blocksToRemove);
+      this.onRemoveFinalizedBlocks &&
+        this.onRemoveFinalizedBlocks(
+          blocksToRemove,
+          this.lastFinalizedBlockNumber
+        );
     } catch (error) {
       console.error("Error slicing finalized blocks:", error);
     }

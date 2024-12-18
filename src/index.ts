@@ -10,7 +10,7 @@ const main = async () => {
 
   const blockWatcher = new BlockWatcher({
     onChange: keysManager.onChange,
-    onCutOffFinalizedBlocks: keysManager.cutOffFinalizedBlocks,
+    onRemoveFinalizedBlocks: keysManager.removeFinalizedBlocks,
   });
 
   blockWatcher.startWatching();

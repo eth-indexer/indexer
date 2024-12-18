@@ -52,7 +52,7 @@ export class KeysManager {
   constructor(maxBatchSize: number, seed: KeysManagerSeed = []) {
     this.maxBatchSize = maxBatchSize;
     this.onChange = this.onChange.bind(this);
-    this.cutOffFinalizedBlocks = this.cutOffFinalizedBlocks.bind(this);
+    this.removeFinalizedBlocks = this.removeFinalizedBlocks.bind(this);
 
     // TODO use seed to populate state??? Perhaps only finalized blocks because others could have been reorganized
     this.blocks = new Map<bigint, KeysManagerBlock>();
@@ -82,11 +82,26 @@ export class KeysManager {
           ...new Set(newNonces.map((item) => item.nonce)),
         ].filter((nonce) => nonce > lastNonceBeforeReorg);
 
-        // delete stale nonces from state
+        // delete stale nonces from state and db
         for (const nonce of staleNonces) {
           this.nonces.delete(nonce);
         }
-        // TODO check if we need to delete stale nonces from db???
+
+        await prisma.keyState.deleteMany({
+          where: {
+            nonce: {
+              in: staleNonces,
+            },
+          },
+        });
+
+        await prisma.block.deleteMany({
+          where: {
+            blockNumber: {
+              gt: lastBlockIdBeforeReorg,
+            },
+          },
+        });
       } finally {
         this.stateLock.release();
       }
@@ -252,10 +267,52 @@ export class KeysManager {
     }
   }
 
-  async cutOffFinalizedBlocks(blocksToRemove: bigint[]) {
+  async removeFinalizedBlocks(
+    blocksToRemove: bigint[],
+    lastFinalizedBlockNumber: bigint
+  ) {
     console.log("Cutting off finalized blocks...", blocksToRemove);
-    for (const blockNumber of blocksToRemove) {
-      // await storage.del(blockNumber.toString());
+    await this.stateLock.acquire();
+    try {
+      const blockNumbersToRemove = Array.from(this.blocks.keys()).filter(
+        (blockNumber) => blockNumber < lastFinalizedBlockNumber
+      );
+      for (const blockNumber of blockNumbersToRemove) {
+        this.blocks.delete(blockNumber);
+      }
+      await prisma.block.deleteMany({
+        where: {
+          blockNumber: {
+            lt: lastFinalizedBlockNumber,
+          },
+        },
+      });
+
+      const noncesToRemove = Array.from(this.nonces.keys()).filter((nonce) => {
+        const blockNumber = Array.from(this.blocks.keys()).find(
+          (blockNumber) => this.blocks.get(blockNumber)?.nonce === nonce
+        );
+        return !blockNumber;
+      });
+      for (const nonce of noncesToRemove) {
+        this.nonces.delete(nonce);
+      }
+
+      const largestNonceToRemove = noncesToRemove.reduce(
+        (max, current) => (max > current ? max : current),
+        noncesToRemove[0]
+      );
+      if (largestNonceToRemove) {
+        await prisma.keyState.deleteMany({
+          where: {
+            nonce: {
+              lte: largestNonceToRemove,
+            },
+          },
+        });
+      }
+    } finally {
+      this.stateLock.release();
     }
   }
 }
