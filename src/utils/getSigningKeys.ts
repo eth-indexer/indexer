@@ -1,5 +1,9 @@
 import { noRegistryContract } from "../contracts/noRegistryContract";
 
+const getKeysCount = (keys: string) => {
+  return keys.slice(2, keys.length).match(/.{1,96}/g)?.length;
+};
+
 async function getOperatorKeys(
   operatorId: bigint,
   blockNumber: bigint,
@@ -14,28 +18,29 @@ async function getOperatorKeys(
 
   const batchesCount = Math.ceil(totalSigningKeysCount / maxBatchSize);
   const limit = Math.min(totalSigningKeysCount, maxBatchSize);
-  const signingKeys: any[] = [];
-  let retryCount = 0;
+  let signingKeys: any[] = [];
 
-  while (retryCount < maxRetryCount) {
+  for (const i of [...Array(batchesCount).keys()]) {
+    const actualLimit =
+      i === batchesCount - 1 ? totalSigningKeysCount % maxBatchSize : limit;
+
     try {
-      for (let i = 0; i < batchesCount; i++) {
-        const actualLimit =
-          i === batchesCount - 1 ? totalSigningKeysCount % maxBatchSize : limit;
-        const keys = (await noRegistryContract.read.getSigningKeys(
-          [operatorId, i * actualLimit, actualLimit],
-          { blockNumber }
-        )) as any[];
-        signingKeys.push(...keys);
+      const keys = (await noRegistryContract.read.getSigningKeys(
+        [operatorId, i * actualLimit, actualLimit],
+        { blockNumber }
+      )) as any[];
+
+      if (!signingKeys.length) {
+        signingKeys = keys;
+      } else {
+        signingKeys = [
+          signingKeys[0].concat(keys[0]),
+          signingKeys[1].concat(keys[1]),
+          signingKeys[2].concat(keys[2]),
+        ];
       }
-      break;
     } catch (e: any) {
-      console.error(
-        `Failed to fetch signing keys for operator ${operatorId}, attempt ${
-          retryCount + 1
-        }/${maxRetryCount}`
-      );
-      retryCount++;
+      console.error(`Failed to fetch signing keys for operator ${operatorId}`);
     }
   }
 
