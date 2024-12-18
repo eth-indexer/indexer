@@ -1,12 +1,12 @@
 import { noRegistryContract } from "../contracts/noRegistryContract";
 
-export const getNonce = async (blockNumber: BigInt): Promise<BigInt> => {
-  return noRegistryContract.read.getNonce() as Promise<BigInt>;
+export const getNonce = async (blockNumber: bigint): Promise<bigint> => {
+  return noRegistryContract.read.getNonce() as Promise<bigint>;
 };
 
 export const getNonces = async (
-  blockNumbers: BigInt[]
-): Promise<{ blockNumber: BigInt; nonce: BigInt }[]> => {
+  blockNumbers: bigint[]
+): Promise<{ blockNumber: bigint; nonce: bigint }[]> => {
   return Promise.all(
     blockNumbers.map(async (blockNumber) => {
       return { blockNumber, nonce: await getNonce(blockNumber) };

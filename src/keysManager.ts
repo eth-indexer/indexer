@@ -1,13 +1,13 @@
 import { getSigningKeys } from "./utils/getSigningKeys";
 import { Block } from "viem";
-import { getNonce, getNonces } from "./utils/getNonce";
+import { getNonces } from "./utils/getNonce";
 import AsyncLock from "./utils/asyncLock";
 import { nanoid } from "nanoid";
 import prisma from "./db/prisma";
 
 type KeysManagerBlock = {
   hash: string;
-  nonce: BigInt;
+  nonce: bigint;
 };
 
 type NonceData = {
@@ -18,12 +18,12 @@ type NonceData = {
 type KeysManagerSeed = {
   blockNumber: string;
   hash: string;
-  nonce: BigInt;
+  nonce: bigint;
 }[];
 
 type BlockWithNonce = {
-  blockNumber: BigInt;
-  nonce: BigInt;
+  blockNumber: bigint;
+  nonce: bigint;
   block: Block;
 };
 
@@ -45,8 +45,8 @@ const bigIntReviver = (key: string, value: any): any => {
 
 export class KeysManager {
   private maxBatchSize: number = 100;
-  private blocks: Map<BigInt, KeysManagerBlock>;
-  private nonces: Map<BigInt, NonceData>;
+  private blocks: Map<bigint, KeysManagerBlock>;
+  private nonces: Map<bigint, NonceData>;
   private stateLock = new AsyncLock();
 
   constructor(maxBatchSize: number, seed: KeysManagerSeed = []) {
@@ -55,8 +55,8 @@ export class KeysManager {
     this.cutOffFinalizedBlocks = this.cutOffFinalizedBlocks.bind(this);
 
     // TODO use seed to populate state??? Perhaps only finalized blocks because others could have been reorganized
-    this.blocks = new Map<BigInt, KeysManagerBlock>();
-    this.nonces = new Map<BigInt, NonceData>();
+    this.blocks = new Map<bigint, KeysManagerBlock>();
+    this.nonces = new Map<bigint, NonceData>();
   }
 
   async onChange(changedBlocks: Block[], isReorg?: boolean) {
@@ -66,18 +66,18 @@ export class KeysManager {
     if (isReorg) {
       await this.stateLock.acquire();
       try {
-        const blockIds = newBlocks.map((block) => block.number as BigInt);
+        const blockIds = newBlocks.map((block) => block.number as bigint);
         const firstBlockInReorg = blockIds?.reduce(
-          (min: BigInt, current: BigInt) => (min < current ? min : current),
+          (min: bigint, current: bigint) => (min < current ? min : current),
           blockIds[0]
         );
-        const lastBlockIdBeforeReorg: BigInt = BigInt(
+        const lastBlockIdBeforeReorg: bigint = BigInt(
           (firstBlockInReorg as bigint) - 1n
-        ) as BigInt;
+        ) as bigint;
 
         const lastNonceBeforeReorg = this.blocks.get(lastBlockIdBeforeReorg)
-          ?.nonce as BigInt;
-        const newNonces = await getNonces(blockIds as BigInt[]);
+          ?.nonce as bigint;
+        const newNonces = await getNonces(blockIds as bigint[]);
         const staleNonces = [
           ...new Set(newNonces.map((item) => item.nonce)),
         ].filter((nonce) => nonce > lastNonceBeforeReorg);
@@ -103,7 +103,7 @@ export class KeysManager {
 
     const blockIds = newBlocks.map((block) => block.number);
     let blocksWithNonce: BlockWithNonce[] = (
-      await getNonces(blockIds as BigInt[])
+      await getNonces(blockIds as bigint[])
     )
       .map((item) => {
         const block = newBlocks.find(
@@ -131,7 +131,7 @@ export class KeysManager {
               ? 1
               : 0;
           })
-          .at(0)?.blockNumber as BigInt;
+          .at(0)?.blockNumber as bigint;
         this._addKeysForNonce(nonce, blockNumber, jobId);
       }
 
@@ -151,8 +151,8 @@ export class KeysManager {
   }
 
   private async _addKeysForNonce(
-    nonce: BigInt,
-    blockNumber: BigInt,
+    nonce: bigint,
+    blockNumber: bigint,
     jobId: string
   ) {
     const keys = await getSigningKeys({
@@ -193,7 +193,7 @@ export class KeysManager {
       this.stateLock.release();
     }
   }
-  private async _saveBlock(block: Block, nonce: BigInt, jobId: string) {
+  private async _saveBlock(block: Block, nonce: bigint, jobId: string) {
     try {
       let status = "waiting";
 
