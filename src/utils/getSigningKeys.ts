@@ -1,9 +1,5 @@
 import { noRegistryContract } from "../contracts/noRegistryContract";
 
-const getKeysCount = (keys: string) => {
-  return keys.slice(2, keys.length).match(/.{1,96}/g)?.length;
-};
-
 async function getOperatorKeys(
   operatorId: bigint,
   blockNumber: bigint,
